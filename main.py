@@ -15,7 +15,7 @@ def main(argv):
     parser.add_argument('network', metavar='N', type=str, help='filename of circuit (SPICE format)')
     parser.add_argument('-i', '--input_sources', metavar='I', type=str, required=True, nargs='+', help='component name(s) of circuit inputs')
     parser.add_argument('-o', '--output_nodes', metavar='O', type=str, required=True, nargs='+', help='node name(s) of circuit to observe')
-    parser.add_argument('-r', '--reduce', metavar='R', type=int, nargs=1, help='turn on model order reduction')
+    parser.add_argument('-r', '--reduce', metavar='R', type=int, nargs=1, help='experiment with model order reduction using given order')
     args = parser.parse_args(argv)
 
     input_sources = set(args.input_sources)
