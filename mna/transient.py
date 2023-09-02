@@ -5,6 +5,14 @@ import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 
+from enum import Enum
+
+class SolverMethod(Enum):
+    SOLVE = 1
+    FORWARD_BACKWARD_SUBSTITUTION = 2
+    INVERSE = 3
+
+METHOD = SolverMethod.INVERSE
 
 def square_wave(t):
     MAX_VALUE = 1
@@ -65,7 +73,14 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
 
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
-    (P, L, U) = scipy.linalg.lu(A)
+    if METHOD == SolverMethod.FORWARD_BACKWARD_SUBSTITUTION:
+        (P, L, U) = scipy.linalg.lu(A)
+        # with np.printoptions(linewidth=1000):
+        #     print(P)
+        #     print(L)
+        #     print(U)
+    elif METHOD == SolverMethod.INVERSE:
+        inv_A = np.linalg.inv(A)
 
     num_points = math.ceil((tf - ti) / dt)
 
@@ -84,8 +99,13 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
         u_avg = (u_curr + u_next) / 2
 
         rhs = np.matmul(A_rhs, x_curr) + dt*(b + Bu*u_avg)
-        x_next = fwd_bwd_sub(L, U, P, rhs)
-        # x_next = np.linalg.solve(A, rhs)
+        
+        if METHOD == SolverMethod.SOLVE:
+            x_next = np.linalg.solve(A, rhs)    # this is slower, but more numerically stable
+        elif METHOD == SolverMethod.FORWARD_BACKWARD_SUBSTITUTION:
+            x_next = fwd_bwd_sub(L, U, P, rhs)  # TODO: why is this numerically unstable when dt is small
+        elif METHOD == SolverMethod.INVERSE:
+            x_next = np.matmul(inv_A, rhs)      # this is fastest. unsure about stability
 
         t[i+1] = t_next
         x[:, i+1] = x_next.reshape(x_next.shape[0])
@@ -115,7 +135,7 @@ def transient_analysis(circuit, input_component_names, output_node_names):
     neg_bvec_idxs = list(neg_bvec_idxs)
 
     x0 = np.zeros(b.shape)
-    (t, x) = implicit_integrate(C, G, b, (pos_bvec_idxs, neg_bvec_idxs), x0, 0, 5e-9, 0.05e-9)
+    (t, x) = implicit_integrate(C, G, b, (pos_bvec_idxs, neg_bvec_idxs), x0, 0, 5e-9, 0.02e-9)
 
     watch_xvec_idxs = set()
     print('observing the following nodes:')
@@ -129,6 +149,5 @@ def transient_analysis(circuit, input_component_names, output_node_names):
     # plt.plot(t, u)
     for node_idx in watch_xvec_idxs:
         plt.plot(t, x[node_idx,:])
-        print(x[node_idx,:])
+        # print(x[node_idx,:])
     plt.savefig("mygraph.png")
-
