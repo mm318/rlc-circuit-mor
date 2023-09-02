@@ -16,7 +16,7 @@ def main(argv):
     args = parser.parse_args(argv)
     # print(args.network, args.input_sources, args.output_nodes, args.reduce)
 
-    circuit = Circuit(args.network)
+    circuit = Circuit(args.network, set(args.input_sources))
     circuit.print_matrices()
 
     transient.transient_analysis(circuit, args.input_sources, args.output_nodes)

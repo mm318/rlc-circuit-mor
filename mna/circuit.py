@@ -4,7 +4,7 @@ import numpy as np
 
 
 class Circuit:
-    def __init__(self, filename):
+    def __init__(self, filename, input_sources=set()):
         self.node_name_to_id = { '0' : -1, 'node0' : -1, 'gnd' : -1, 'ground' : -1 }
         num_default_nodes = len(self.node_name_to_id)
         self.voltage_sources = {}   # internal voltage sources (num_internals): voltage_sources[component_name] = v_src_id
@@ -76,15 +76,29 @@ class Circuit:
         for (component_name, node1_name, node2_name, value) in components:
             component_type = component_name[0].lower()
             if component_type == 'r':
-                self._add_resistor(self.node_name_to_id[node1_name], self.node_name_to_id[node2_name], value)
+                self._add_resistor(self.node_name_to_id[node1_name],
+                                   self.node_name_to_id[node2_name],
+                                   value)
             elif component_type == 'c':
-                self._add_capacitor(self.node_name_to_id[node1_name], self.node_name_to_id[node2_name], value)
+                self._add_capacitor(self.node_name_to_id[node1_name],
+                                    self.node_name_to_id[node2_name],
+                                    value)
             elif component_type == 'l':
-                self._add_inductor(component_name, self.node_name_to_id[node1_name], self.node_name_to_id[node2_name], value)
+                self._add_inductor(component_name,
+                                   self.node_name_to_id[node1_name],
+                                   self.node_name_to_id[node2_name],
+                                   value)
             elif component_type == 'v':
-                self._add_voltage_source(component_name, self.node_name_to_id[node1_name], self.node_name_to_id[node2_name], value)
+                self._add_voltage_source(component_name,
+                                         self.node_name_to_id[node1_name],
+                                         self.node_name_to_id[node2_name],
+                                         value,
+                                         component_name in input_sources)
             elif component_type == 'i':
-                self._add_current_source(self.node_name_to_id[node1_name], self.node_name_to_id[node2_name], value)
+                self._add_current_source(self.node_name_to_id[node1_name],
+                                         self.node_name_to_id[node2_name],
+                                         value,
+                                         component_name in input_sources)
 
         self.G = np.vstack((np.hstack((self.GA, self.GB)), np.hstack((self.GC, self.GD))))
         self.C = np.vstack((np.hstack((self.CA, self.CB)), np.hstack((self.CC, self.CD))))
@@ -132,11 +146,12 @@ class Circuit:
         if node2_id >= 0:
             self.GC[v_src_id, node2_id] += 1
 
-    def _add_voltage_source(self, component_name, p_node_id, n_node_id, value):
+    def _add_voltage_source(self, component_name, p_node_id, n_node_id, value, override=False):
         assert(p_node_id != n_node_id)
         v_src_id = self.voltage_sources[component_name]
 
-        self.v[v_src_id, 0] = value # fixed component voltage drop across voltage source
+        if not override:
+            self.v[v_src_id, 0] = value # fixed component voltage drop across voltage source
 
         # current relationships (KCL)
         if p_node_id >= 0:
@@ -150,7 +165,9 @@ class Circuit:
         if n_node_id >= 0:
             self.GC[v_src_id, n_node_id] -= 1
 
-    def _add_current_source(self, node1_id, node2_id, value):
+    def _add_current_source(self, node1_id, node2_id, value, override=False):
+        if override:
+            return
         if node1_id >= 0:
             self.i[node1_id] -= value
         if node2_id >= 0:

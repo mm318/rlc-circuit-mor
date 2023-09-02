@@ -59,6 +59,10 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
     # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
 
     b = b.reshape(b.shape[0])
+    Bu = np.zeros(b.shape)
+    Bu[bvec_src_idxs[0]] = 1.0
+    Bu[bvec_src_idxs[1]] = -1.0
+
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
     (P, L, U) = scipy.linalg.lu(A)
@@ -72,17 +76,16 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
     x[:, 0] = x0.reshape(x0.shape[0])
 
     for i in range(num_points):
-        x_curr = x[:, 1]
+        x_curr = x[:, i]
         t_curr = ti + i*dt
         t_next = ti + (i+1)*dt
         u_curr = square_wave(t_curr)
         u_next = square_wave(t_next)
         u_avg = (u_curr + u_next) / 2
 
-        b[bvec_src_idxs[0]] = u_avg
-        b[bvec_src_idxs[1]] = -u_avg
-        rhs = np.matmul(A_rhs, x_curr) + dt*b
+        rhs = np.matmul(A_rhs, x_curr) + dt*(b + Bu*u_avg)
         x_next = fwd_bwd_sub(L, U, P, rhs)
+        # x_next = np.linalg.solve(A, rhs)
 
         t[i+1] = t_next
         x[:, i+1] = x_next.reshape(x_next.shape[0])
@@ -112,16 +115,20 @@ def transient_analysis(circuit, input_component_names, output_node_names):
     neg_bvec_idxs = list(neg_bvec_idxs)
 
     x0 = np.zeros(b.shape)
-    # implicit_integrate(C, G, b, (pos_bvec_idxs, neg_bvec_idxs), x0, 0, 5e-9, 100e-12)
+    (t, x) = implicit_integrate(C, G, b, (pos_bvec_idxs, neg_bvec_idxs), x0, 0, 5e-9, 0.05e-9)
 
+    watch_xvec_idxs = set()
     print('observing the following nodes:')
     for node_name in output_node_names:
         index = circuit.node_xvec_idx(node_name)
         print('  %s [x_vector_index=%d]' % (node_name, index))
+        watch_xvec_idxs.add(index)
 
-    t = np.linspace(0, 10e-9, 300)
-    vsquare_wave = np.vectorize(square_wave)
-    u = vsquare_wave(t)
-    plt.plot(t, u)
+    # vsquare_wave = np.vectorize(square_wave)
+    # u = vsquare_wave(t)
+    # plt.plot(t, u)
+    for node_idx in watch_xvec_idxs:
+        plt.plot(t, x[node_idx,:])
+        print(x[node_idx,:])
     plt.savefig("mygraph.png")
 
