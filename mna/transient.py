@@ -68,8 +68,8 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     # C*x(t+dt) = C*x(t) + 0.5*dt*((b(t+dt) - G*x(t+dt)) + (b(t) - G*x(t)))
     # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
 
-    b = b.flatten() # constant inputs
-    B = B.flatten() # time-dependent (user-defined) inputs
+    # b are the constant inputs
+    # B are the (user-defined) time-dependent inputs
 
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
@@ -91,7 +91,7 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     x[:, 0:1] = x0
 
     for i in range(num_points):
-        x_curr = x[:, i]
+        x_curr = x[:, i:i+1]
         t_curr = ti + i*dt
         t_next = ti + (i+1)*dt
         u_curr = square_wave(t_curr)
@@ -108,7 +108,7 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
             x_next = np.matmul(inv_A, rhs)      # this is fastest. unsure about stability
 
         t[i+1] = t_next
-        x[:, i+1] = x_next
+        x[:, i+1:i+2] = x_next
 
     return (t, x)
 
