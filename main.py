@@ -20,9 +20,7 @@ def main(argv):
     output_nodes = set(args.output_nodes)
 
     circuit = Circuit(args.network, input_sources, output_nodes)
-    circuit.print_matrices()
-
-    transient.transient_analysis(circuit)
+    transient.transient_analysis(circuit, args.reduce)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
+from enum import Enum
+import time
 import math
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
 
-from enum import Enum
+from . import prima
 
 class SolverMethod(Enum):
     SOLVE = 1
@@ -66,8 +68,8 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     # C*x(t+dt) = C*x(t) + 0.5*dt*((b(t+dt) - G*x(t+dt)) + (b(t) - G*x(t)))
     # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
 
-    b = b.flatten()
-    B = B.flatten()
+    b = b.flatten() # constant inputs
+    B = B.flatten() # time-dependent (user-defined) inputs
 
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
@@ -86,7 +88,7 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     x = np.empty((x0.shape[0], num_points+1))
 
     t[0] = ti
-    x[:, 0] = x0.reshape(x0.shape[0])
+    x[:, 0:1] = x0
 
     for i in range(num_points):
         x_curr = x[:, i]
@@ -97,7 +99,7 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
         u_avg = (u_curr + u_next) / 2
 
         rhs = np.matmul(A_rhs, x_curr) + dt*(b + B*u_avg)
-        
+
         if METHOD == SolverMethod.SOLVE:
             x_next = np.linalg.solve(A, rhs)    # this is slower, but more numerically stable
         elif METHOD == SolverMethod.FORWARD_BACKWARD_SUBSTITUTION:
@@ -106,19 +108,23 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
             x_next = np.matmul(inv_A, rhs)      # this is fastest. unsure about stability
 
         t[i+1] = t_next
-        x[:, i+1] = x_next.flatten()
+        x[:, i+1] = x_next
 
     return (t, x)
 
-def transient_analysis(circuit):
+def transient_analysis(circuit, test_mor=False):
     (G, C, b) = circuit.mna_GCb_matrices
+    print("circuit model size:")
+    circuit.print_GCb_matrices()
 
     print('replacing voltage/current sources with square waves')
     B = circuit.input_B_vector
 
-
     x0 = np.zeros(b.shape)
+    tic = time.perf_counter()
     (t, x) = implicit_integrate(C, G, b, B, x0, 0, 5e-9, 0.02e-9)
+    toc = time.perf_counter()
+    print("simulating the circuit took %f seconds" % (toc - tic))
 
     print('observing the following nodes:')
     L_list = circuit.output_L_vectors
@@ -127,3 +133,7 @@ def transient_analysis(circuit):
         output = np.dot(L.transpose(), x).flatten()
         plt.plot(t, output)
     plt.savefig("mygraph.png")
+
+    if test_mor:
+        q = 6   # order to reduce model down to
+        reduced_circuit = prima.reduce(q, G, C, b, B, L_list)

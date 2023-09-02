@@ -2,8 +2,9 @@
 
 import numpy as np
 
+from .circuit_model import CircuitModel
 
-class Circuit:
+class Circuit(CircuitModel):
     def __init__(self, filename, input_sources=set(), output_nodes=set()):
         self.input_sources = input_sources
         self.output_nodes = output_nodes
@@ -177,7 +178,7 @@ class Circuit:
 
     @property
     def mna_GCb_matrices(self):
-        return (self.G, self.C, np.copy(self.b))
+        return (self.G, self.C, self.b)
 
     @property
     def input_B_vector(self):
@@ -206,6 +207,7 @@ class Circuit:
         B = np.zeros(self.b.shape)
         B[list(pos_Bvec_idxs)] = 1.0
         B[list(neg_Bvec_idxs)] = -1.0
+        B.setflags(write=False)
         return B
 
     @property
@@ -217,12 +219,13 @@ class Circuit:
                 print('  %s [x_vector_index=%d]' % (node_name, index))
                 L = np.zeros(self.b.shape)
                 L[index] = 1.0
+                L.setflags(write=False)
                 L_list.append(L)
             else:
                 print('  %s (invalid node)' % node_name)
         return L_list
 
-    def print_matrices(self):
+    def print_GCb_matrices(self):
         with np.printoptions(linewidth=1000):
             print('G(%s) =\n' % str(self.G.shape), self.G)
             print('C(%s) =\n' % str(self.C.shape), self.C)
