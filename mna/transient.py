@@ -55,7 +55,7 @@ def fwd_bwd_sub(L, U, P, b):
 
     return x
 
-def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
+def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     # Given:
     # G*x(t) + C*x'(t) = b(t)
     # C*x'(t) = b(t) - G*x(t)
@@ -66,10 +66,8 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
     # C*x(t+dt) = C*x(t) + 0.5*dt*((b(t+dt) - G*x(t+dt)) + (b(t) - G*x(t)))
     # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
 
-    b = b.reshape(b.shape[0])
-    Bu = np.zeros(b.shape)
-    Bu[bvec_src_idxs[0]] = 1.0
-    Bu[bvec_src_idxs[1]] = -1.0
+    b = b.flatten()
+    B = B.flatten()
 
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
@@ -98,7 +96,7 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
         u_next = square_wave(t_next)
         u_avg = (u_curr + u_next) / 2
 
-        rhs = np.matmul(A_rhs, x_curr) + dt*(b + Bu*u_avg)
+        rhs = np.matmul(A_rhs, x_curr) + dt*(b + B*u_avg)
         
         if METHOD == SolverMethod.SOLVE:
             x_next = np.linalg.solve(A, rhs)    # this is slower, but more numerically stable
@@ -108,46 +106,24 @@ def implicit_integrate(C, G, b, bvec_src_idxs, x0, ti, tf, dt):
             x_next = np.matmul(inv_A, rhs)      # this is fastest. unsure about stability
 
         t[i+1] = t_next
-        x[:, i+1] = x_next.reshape(x_next.shape[0])
+        x[:, i+1] = x_next.flatten()
 
     return (t, x)
 
-def transient_analysis(circuit, input_component_names, output_node_names):
-    (G, C, b) = circuit.mna_matrices
+def transient_analysis(circuit):
+    (G, C, b) = circuit.mna_GCb_matrices
 
-    print('replacing the following voltage/current sources with square waves:')
-    pos_bvec_idxs = set()
-    neg_bvec_idxs = set()
-    for src_name in input_component_names:
-        component_type = src_name[0].lower()
-        if component_type == 'i':
-            indices = circuit.current_source_bvec_idxs(src_name)
-            print('  %s [b_vector indices=%s]' % (src_name, str(indices)))
-            neg_bvec_idxs.add(indices[0])
-            pos_bvec_idxs.add(indices[1])
-        elif component_type == 'v':
-            index = circuit.voltage_source_bvec_idx(src_name)
-            print('  %s [b_vector index=%d]' % (src_name, index))
-            pos_bvec_idxs.add(index)
-        else:
-            print('  %s (invalid source)' % src_name)
-    pos_bvec_idxs = list(pos_bvec_idxs)
-    neg_bvec_idxs = list(neg_bvec_idxs)
+    print('replacing voltage/current sources with square waves')
+    B = circuit.input_B_vector
+
 
     x0 = np.zeros(b.shape)
-    (t, x) = implicit_integrate(C, G, b, (pos_bvec_idxs, neg_bvec_idxs), x0, 0, 5e-9, 0.02e-9)
+    (t, x) = implicit_integrate(C, G, b, B, x0, 0, 5e-9, 0.02e-9)
 
-    watch_xvec_idxs = set()
     print('observing the following nodes:')
-    for node_name in output_node_names:
-        index = circuit.node_xvec_idx(node_name)
-        print('  %s [x_vector_index=%d]' % (node_name, index))
-        watch_xvec_idxs.add(index)
+    L_list = circuit.output_L_vectors
 
-    # vsquare_wave = np.vectorize(square_wave)
-    # u = vsquare_wave(t)
-    # plt.plot(t, u)
-    for node_idx in watch_xvec_idxs:
-        plt.plot(t, x[node_idx,:])
-        # print(x[node_idx,:])
+    for L in L_list:
+        output = np.dot(L.transpose(), x).flatten()
+        plt.plot(t, output)
     plt.savefig("mygraph.png")

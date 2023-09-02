@@ -4,7 +4,9 @@ import numpy as np
 
 
 class Circuit:
-    def __init__(self, filename, input_sources=set()):
+    def __init__(self, filename, input_sources=set(), output_nodes=set()):
+        self.input_sources = input_sources
+        self.output_nodes = output_nodes
         self.node_name_to_id = { '0' : -1, 'node0' : -1, 'gnd' : -1, 'ground' : -1 }
         num_default_nodes = len(self.node_name_to_id)
         self.voltage_sources = {}   # internal voltage sources (num_internals): voltage_sources[component_name] = v_src_id
@@ -93,12 +95,12 @@ class Circuit:
                                          self.node_name_to_id[node1_name],
                                          self.node_name_to_id[node2_name],
                                          value,
-                                         component_name in input_sources)
+                                         component_name in self.input_sources)
             elif component_type == 'i':
                 self._add_current_source(self.node_name_to_id[node1_name],
                                          self.node_name_to_id[node2_name],
                                          value,
-                                         component_name in input_sources)
+                                         component_name in self.input_sources)
 
         self.G = np.vstack((np.hstack((self.GA, self.GB)), np.hstack((self.GC, self.GD))))
         self.C = np.vstack((np.hstack((self.CA, self.CB)), np.hstack((self.CC, self.CD))))
@@ -174,27 +176,51 @@ class Circuit:
             self.i[node2_id] += value
 
     @property
-    def mna_matrices(self):
+    def mna_GCb_matrices(self):
         return (self.G, self.C, np.copy(self.b))
 
-    def voltage_source_bvec_idx(self, name):
-        if name not in self.voltage_sources:
-            print('voltage source %s not found in circuit' % name)
-            return None
-        v_src_id = self.voltage_sources[name]
-        return self.i.shape[0] + v_src_id
+    @property
+    def input_B_vector(self):
+        pos_Bvec_idxs = set()
+        neg_Bvec_idxs = set()
+        for component_name in self.input_sources:
+            component_type = component_name[0].lower()
+            if component_type == 'i':
+                if component_name in self.current_sources:
+                    indices = self.current_sources[component_name]
+                    print('  %s [b_vector indices=%s]' % (component_name, str(indices)))
+                    neg_Bvec_idxs.add(indices[0])
+                    pos_Bvec_idxs.add(indices[1])
+                else:
+                    print('  %s (invalid current source)' % component_name)
+            elif component_type == 'v':
+                if component_name in self.voltage_sources:
+                    index = self.i.shape[0] + self.voltage_sources[component_name]
+                    print('  %s [b_vector index=%d]' % (component_name, index))
+                    pos_Bvec_idxs.add(index)
+                else:
+                    print('  %s (invalid voltage source)' % component_name)
+            else:
+                print('  %s (invalid input source)' % component_name)
 
-    def current_source_bvec_idxs(self, name):
-        if name not in self.current_sources:
-            print('current source %s not found in circuit' % name)
-            return None
-        return self.current_sources[name]
+        B = np.zeros(self.b.shape)
+        B[list(pos_Bvec_idxs)] = 1.0
+        B[list(neg_Bvec_idxs)] = -1.0
+        return B
 
-    def node_xvec_idx(self, name):
-        if name not in self.node_name_to_id:
-            print('node %s not found in circuit' % name)
-            return None
-        return self.node_name_to_id[name]
+    @property
+    def output_L_vectors(self):
+        L_list = []
+        for node_name in self.output_nodes:
+            if node_name in self.node_name_to_id:
+                index = self.node_name_to_id[node_name]
+                print('  %s [x_vector_index=%d]' % (node_name, index))
+                L = np.zeros(self.b.shape)
+                L[index] = 1.0
+                L_list.append(L)
+            else:
+                print('  %s (invalid node)' % node_name)
+        return L_list
 
     def print_matrices(self):
         with np.printoptions(linewidth=1000):

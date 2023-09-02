@@ -16,10 +16,13 @@ def main(argv):
     args = parser.parse_args(argv)
     # print(args.network, args.input_sources, args.output_nodes, args.reduce)
 
-    circuit = Circuit(args.network, set(args.input_sources))
+    input_sources = set(args.input_sources)
+    output_nodes = set(args.output_nodes)
+
+    circuit = Circuit(args.network, input_sources, output_nodes)
     circuit.print_matrices()
 
-    transient.transient_analysis(circuit, args.input_sources, args.output_nodes)
+    transient.transient_analysis(circuit)
 
 
 if __name__ == "__main__":
