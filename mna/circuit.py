@@ -228,6 +228,10 @@ class Circuit(CircuitModel):
     def output_L_vectors(self):
         return self.L_list
 
+    @property
+    def output_node_names(self):
+        return self.output_nodes
+
     def print_GCb_matrices(self):
         with np.printoptions(linewidth=1000):
             print('G(%s) =\n' % str(self.G.shape), self.G)

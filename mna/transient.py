@@ -109,20 +109,20 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
 
     return (t, x)
 
-def transient_analysis(circuit):
+def transient_analysis(circuit, ti, tf):
     (G, C, b) = circuit.mna_GCb_matrices
     B = circuit.input_B_vector
     L_list = circuit.output_L_vectors
 
     x0 = np.zeros(b.shape)
     tic = time.perf_counter()
-    (t, x) = implicit_integrate(C, G, b, B, x0, 0, 5e-9, 0.02e-9)
+    (t, x) = implicit_integrate(C, G, b, B, x0, ti, tf, 0.02e-9)
     toc = time.perf_counter()
     print("simulating the circuit took %.6f seconds" % (toc - tic))
 
     outputs = []
-    for L in L_list:
+    for (node_name, L) in zip(circuit.output_node_names, L_list):
         output = np.dot(L.transpose(), x).flatten()
-        outputs.append(output)
+        outputs.append((node_name, output))
 
     return (t, outputs)

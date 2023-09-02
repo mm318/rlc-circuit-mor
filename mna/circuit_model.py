@@ -21,3 +21,8 @@ class CircuitModel(ABC):
     @abstractmethod
     def print_GCb_matrices(self):
         pass
+
+    @property
+    @abstractmethod
+    def output_node_names(self):
+        pass
