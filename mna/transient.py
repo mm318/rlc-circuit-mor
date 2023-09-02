@@ -5,9 +5,6 @@ import time
 import math
 import numpy as np
 import scipy
-import matplotlib.pyplot as plt
-
-from . import prima
 
 class SolverMethod(Enum):
     SOLVE = 1
@@ -69,7 +66,7 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
 
     # b are the constant inputs
-    # B are the (user-defined) time-dependent inputs
+    # B are the (user-defined) time-dependent inputs, multiply it with u(t)
 
     A_rhs = (C - (dt/2)*G)
     A = (C + (dt/2)*G)
@@ -112,28 +109,20 @@ def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
 
     return (t, x)
 
-def transient_analysis(circuit, test_mor=False):
+def transient_analysis(circuit):
     (G, C, b) = circuit.mna_GCb_matrices
-    print("circuit model size:")
-    circuit.print_GCb_matrices()
-
-    print('replacing voltage/current sources with square waves')
     B = circuit.input_B_vector
+    L_list = circuit.output_L_vectors
 
     x0 = np.zeros(b.shape)
     tic = time.perf_counter()
     (t, x) = implicit_integrate(C, G, b, B, x0, 0, 5e-9, 0.02e-9)
     toc = time.perf_counter()
-    print("simulating the circuit took %f seconds" % (toc - tic))
+    print("simulating the circuit took %.6f seconds" % (toc - tic))
 
-    print('observing the following nodes:')
-    L_list = circuit.output_L_vectors
-
+    outputs = []
     for L in L_list:
         output = np.dot(L.transpose(), x).flatten()
-        plt.plot(t, output)
-    plt.savefig("mygraph.png")
+        outputs.append(output)
 
-    if test_mor:
-        q = 6   # order to reduce model down to
-        reduced_circuit = prima.reduce(q, G, C, b, B, L_list)
+    return (t, outputs)

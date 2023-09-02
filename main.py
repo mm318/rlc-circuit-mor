@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import sys
+import time
 import argparse
+import matplotlib.pyplot as plt
 
 from mna.circuit import Circuit
 from mna import transient
+from mna import prima
 
 
 def main(argv):
@@ -20,7 +23,26 @@ def main(argv):
     output_nodes = set(args.output_nodes)
 
     circuit = Circuit(args.network, input_sources, output_nodes)
-    transient.transient_analysis(circuit, args.reduce)
+    print("circuit model size:")
+    circuit.print_GCb_matrices()
+    (t, outputs) = transient.transient_analysis(circuit)
+    for output in outputs:
+        plt.plot(t, output)
+
+    if args.reduce:
+        reduced_model_order = 20   # order to reduce model down to
+        tic = time.perf_counter()
+        reduced_circuit = prima.PrimaReducedCircuit(reduced_model_order, circuit)
+        toc = time.perf_counter()
+        print("simulating the circuit took %.6f seconds" % (toc - tic))
+        print("reduced circuit model size:")
+        reduced_circuit.print_GCb_matrices()
+
+        (t, outputs) = transient.transient_analysis(reduced_circuit)
+        for output in outputs:
+            plt.plot(t, output)
+
+    plt.savefig("mygraph.png")
 
 
 if __name__ == "__main__":

@@ -108,10 +108,50 @@ class Circuit(CircuitModel):
         self.b = np.vstack((self.i, self.v))
         assert(self.G.shape[0] == self.b.shape[0])
         assert(self.G.shape[1] == self.b.shape[0])
-
         self.G.setflags(write=False)
         self.C.setflags(write=False)
         self.b.setflags(write=False)
+
+        print('replacing voltage/current sources with square waves')
+        pos_Bvec_idxs = set()
+        neg_Bvec_idxs = set()
+        for component_name in self.input_sources:
+            component_type = component_name[0].lower()
+            if component_type == 'i':
+                if component_name in self.current_sources:
+                    indices = self.current_sources[component_name]
+                    print('  %s [b_vector indices=%s]' % (component_name, str(indices)))
+                    neg_Bvec_idxs.add(indices[0])
+                    pos_Bvec_idxs.add(indices[1])
+                else:
+                    print('  %s (invalid current source)' % component_name)
+            elif component_type == 'v':
+                if component_name in self.voltage_sources:
+                    index = self.i.shape[0] + self.voltage_sources[component_name]
+                    print('  %s [b_vector index=%d]' % (component_name, index))
+                    pos_Bvec_idxs.add(index)
+                else:
+                    print('  %s (invalid voltage source)' % component_name)
+            else:
+                print('  %s (invalid input source)' % component_name)
+
+        self.B = np.zeros(self.b.shape)
+        self.B[list(pos_Bvec_idxs)] = 1.0
+        self.B[list(neg_Bvec_idxs)] = -1.0
+        self.B.setflags(write=False)
+
+        print('observing the following nodes:')
+        self.L_list = []
+        for node_name in self.output_nodes:
+            if node_name in self.node_name_to_id:
+                index = self.node_name_to_id[node_name]
+                print('  %s [x_vector_index=%d]' % (node_name, index))
+                L = np.zeros(self.b.shape)
+                L[index] = 1.0
+                L.setflags(write=False)
+                self.L_list.append(L)
+            else:
+                print('  %s (invalid node)' % node_name)
 
     def _add_resistor(self, node1_id, node2_id, value):
         if node1_id >= 0:
@@ -182,48 +222,11 @@ class Circuit(CircuitModel):
 
     @property
     def input_B_vector(self):
-        pos_Bvec_idxs = set()
-        neg_Bvec_idxs = set()
-        for component_name in self.input_sources:
-            component_type = component_name[0].lower()
-            if component_type == 'i':
-                if component_name in self.current_sources:
-                    indices = self.current_sources[component_name]
-                    print('  %s [b_vector indices=%s]' % (component_name, str(indices)))
-                    neg_Bvec_idxs.add(indices[0])
-                    pos_Bvec_idxs.add(indices[1])
-                else:
-                    print('  %s (invalid current source)' % component_name)
-            elif component_type == 'v':
-                if component_name in self.voltage_sources:
-                    index = self.i.shape[0] + self.voltage_sources[component_name]
-                    print('  %s [b_vector index=%d]' % (component_name, index))
-                    pos_Bvec_idxs.add(index)
-                else:
-                    print('  %s (invalid voltage source)' % component_name)
-            else:
-                print('  %s (invalid input source)' % component_name)
-
-        B = np.zeros(self.b.shape)
-        B[list(pos_Bvec_idxs)] = 1.0
-        B[list(neg_Bvec_idxs)] = -1.0
-        B.setflags(write=False)
-        return B
+        return self.B
 
     @property
     def output_L_vectors(self):
-        L_list = []
-        for node_name in self.output_nodes:
-            if node_name in self.node_name_to_id:
-                index = self.node_name_to_id[node_name]
-                print('  %s [x_vector_index=%d]' % (node_name, index))
-                L = np.zeros(self.b.shape)
-                L[index] = 1.0
-                L.setflags(write=False)
-                L_list.append(L)
-            else:
-                print('  %s (invalid node)' % node_name)
-        return L_list
+        return self.L_list
 
     def print_GCb_matrices(self):
         with np.printoptions(linewidth=1000):
