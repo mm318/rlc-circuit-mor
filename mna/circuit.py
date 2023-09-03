@@ -6,6 +6,7 @@ from .circuit_model import CircuitModel
 
 class Circuit(CircuitModel):
     def __init__(self, filename, input_sources=set(), output_nodes=set()):
+        self.internal_sources = []
         self.input_sources = input_sources
         self.output_nodes = output_nodes
         self.node_name_to_id = { '0' : -1, 'node0' : -1, 'gnd' : -1, 'ground' : -1 }
@@ -92,12 +93,16 @@ class Circuit(CircuitModel):
                                    self.node_name_to_id[node2_name],
                                    value)
             elif component_type == 'v':
+                if component_name not in self.input_sources:
+                    self.internal_sources.append(component_name)
                 self._add_voltage_source(component_name,
                                          self.node_name_to_id[node1_name],
                                          self.node_name_to_id[node2_name],
                                          value,
                                          component_name in self.input_sources)
             elif component_type == 'i':
+                if component_name not in self.input_sources:
+                    self.internal_sources.append(component_name)
                 self._add_current_source(self.node_name_to_id[node1_name],
                                          self.node_name_to_id[node2_name],
                                          value,
@@ -112,7 +117,7 @@ class Circuit(CircuitModel):
         self.C.setflags(write=False)
         self.b.setflags(write=False)
 
-        print('replacing voltage/current sources with square waves')
+        print('setting voltage/current sources as external input')
         pos_Bvec_idxs = set()
         neg_Bvec_idxs = set()
         for component_name in self.input_sources:
@@ -120,7 +125,7 @@ class Circuit(CircuitModel):
             if component_type == 'i':
                 if component_name in self.current_sources:
                     indices = self.current_sources[component_name]
-                    print('  %s [b_vector indices=%s]' % (component_name, str(indices)))
+                    print('  %s [B_vector indices=%s]' % (component_name, str(indices)))
                     neg_Bvec_idxs.add(indices[0])
                     pos_Bvec_idxs.add(indices[1])
                 else:
@@ -128,12 +133,22 @@ class Circuit(CircuitModel):
             elif component_type == 'v':
                 if component_name in self.voltage_sources:
                     index = self.i.shape[0] + self.voltage_sources[component_name]
-                    print('  %s [b_vector index=%d]' % (component_name, index))
+                    print('  %s [B_vector index=%d]' % (component_name, index))
                     pos_Bvec_idxs.add(index)
                 else:
                     print('  %s (invalid voltage source)' % component_name)
             else:
                 print('  %s (invalid input source)' % component_name)
+        if len(self.internal_sources) > 0:
+            print('internal sources (non-passive circuit)')
+            for component_name in self.internal_sources:
+                component_type = component_name[0].lower()
+                if component_type == 'i':
+                    indices = self.current_sources[component_name]
+                    print('  %s [b_vector indices=%s]' % (component_name, str(indices)))
+                elif component_type == 'v':
+                    index = self.i.shape[0] + self.voltage_sources[component_name]
+                    print('  %s [b_vector index=%d]' % (component_name, index))
 
         self.B = np.zeros(self.b.shape)
         self.B[list(pos_Bvec_idxs)] = 1.0
@@ -231,6 +246,10 @@ class Circuit(CircuitModel):
     @property
     def output_node_names(self):
         return self.output_nodes
+
+    @property
+    def internal_source_names(self):
+        return self.internal_sources
 
     def print_GCb_matrices(self):
         with np.printoptions(linewidth=1000):

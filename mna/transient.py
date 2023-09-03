@@ -56,16 +56,17 @@ def fwd_bwd_sub(L, U, P, b):
 
 def implicit_integrate(C, G, b, B, x0, ti, tf, dt):
     # Given:
-    # G*x(t) + C*x'(t) = b(t)
-    # C*x'(t) = b(t) - G*x(t)
+    # G*x(t) + C*x'(t) = b + B*u(t)
+    # C*x'(t) = b + B*u(t) - G*x(t)
+    # [b is a time-constant vector, u(t) is a scalar]
     #
     # trapezoidal rule:
     # x(t+dt) = x(t) + 0.5*dt*(x'(t+dt) + x(t))
     # C*x(t+dt) = C*x(t) + 0.5*dt*(C*x'(t+dt) + C*x(t))
-    # C*x(t+dt) = C*x(t) + 0.5*dt*((b(t+dt) - G*x(t+dt)) + (b(t) - G*x(t)))
-    # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(b(t+dt) + b(t))
+    # C*x(t+dt) = C*x(t) + 0.5*dt*((b + B*u(t+dt) - G*x(t+dt)) + (b + B*u(t) - G*x(t)))
+    # (C + 0.5*dt*G)*x(t+dt) = (C - 0.5*dt*G)*x(t) + 0.5*dt*(2*b + B*(u(t+dt) + u(t)))
 
-    # b are the constant inputs
+    # b are the constant inputs, internal sources, no longer passive circuit
     # B are the (user-defined) time-dependent inputs, multiply it with u(t)
 
     A_rhs = (C - (dt/2)*G)

@@ -10,6 +10,7 @@ class PrimaReducedCircuit(CircuitModel):
         (G, C, b) = full_circuit.mna_GCb_matrices
         B = full_circuit.input_B_vector
         L_list = full_circuit.output_L_vectors
+        self.internal_sources = full_circuit.internal_source_names
         self.output_nodes = full_circuit.output_node_names
 
         n = G.shape[0]  # Order of original system
@@ -64,6 +65,10 @@ class PrimaReducedCircuit(CircuitModel):
     @property
     def output_node_names(self):
         return self.output_nodes
+
+    @property
+    def internal_source_names(self):
+        return self.internal_sources
 
     def print_GCb_matrices(self):
         with np.printoptions(linewidth=1000):

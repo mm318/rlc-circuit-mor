@@ -54,6 +54,11 @@ down to just 20 internal states. The following is a comparison of the simulation
 There are imperfections as expected. However, the simulation runtime for the same number of timesteps for the
 full circuit model is around 5 seconds and 0.015 seconds for the reduced circuit model.
 
+![Example frequency analysis](reference/clock_tree_frequency_analysis.png "Example frequency analysis")
+
+The frequency analysis shows that frequency response of the reduced circuit model is accurate up to a certain point.
+
+
 ## References
 
 The PRIMA technique originated from the following paper:

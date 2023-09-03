@@ -18,11 +18,16 @@ class CircuitModel(ABC):
     def output_L_vectors(self):
         pass
 
+    @property
     @abstractmethod
-    def print_GCb_matrices(self):
+    def internal_source_names(self):
         pass
 
     @property
     @abstractmethod
     def output_node_names(self):
+        pass
+
+    @abstractmethod
+    def print_GCb_matrices(self):
         pass
